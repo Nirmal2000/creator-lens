@@ -5,7 +5,7 @@ const resolveServiceRoleKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const resolveProjectId = () => process.env.SUPABASE_PROJECT_ID;
 
-export const createServerSupabaseClient = (): SupabaseClient => {
+export const createServerSupabaseClient = () => {
   const projectId = resolveProjectId();
   const serviceKey = resolveServiceRoleKey();
   console.log('SERVICE ROLE', process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 6));

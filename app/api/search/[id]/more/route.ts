@@ -128,7 +128,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
 
     await appendSearchResults({
-      searchId: params.id,
+      searchId: id,
       platformStatus: placeholderStatus,
       payloadMap,
       media,
@@ -136,7 +136,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
 
     return NextResponse.json({
-      searchId: params.id,
+      searchId: id,
       platformStatus: placeholderStatus,
       media,
     });

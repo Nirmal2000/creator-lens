@@ -6,8 +6,9 @@ export interface DownloadJobInput {
   thumbnail_url?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const queueDownloadJobs = async (
-  supabase: SupabaseClient,
+  supabase: any,
   jobs: DownloadJobInput[],
 ) => {
   if (!jobs.length) return;

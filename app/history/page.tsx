@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MediaGrid } from "@/components/media-grid";
 import type { NormalizedMediaItem } from "@/lib/media-normalizers";
@@ -33,7 +33,7 @@ const buildQueryString = (filters: HistoryFiltersState) => {
   return params.toString();
 };
 
-export default function HistoryPage() {
+function HistoryPageContent() {
   const searchParams = useSearchParams();
   const initialSearchId = searchParams.get("id");
 
@@ -140,5 +140,13 @@ export default function HistoryPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function HistoryPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading history…</div>}>
+      <HistoryPageContent />
+    </Suspense>
   );
 }

@@ -92,7 +92,7 @@ export function MediaModal({ item, isOpen, onClose, isMuted, onToggleMute }: Med
                     {item.platform}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(item.createdAt || Date.now()).toLocaleDateString()}
+                    {new Date(item.publishedAt || Date.now()).toLocaleDateString()}
                   </span>
                 </div>
                 

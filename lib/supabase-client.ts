@@ -18,7 +18,7 @@ const resolveUrl = () => {
   return `https://${projectId}.supabase.co`;
 };
 
-export const createBrowserSupabaseClient = (): SupabaseClient => {
+export const createBrowserSupabaseClient = () => {
   const anonKey = resolveAnonKey();
   if (!anonKey) {
     throw new Error("Missing SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_ANON_KEY)");
