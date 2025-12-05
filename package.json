@@ -35,6 +35,7 @@
     "eslint-config-next": "latest",
     "postcss": "latest",
     "tailwindcss": "latest",
+    "tailwindcss-animate": "^1.0.7",
     "typescript": "latest",
     "vitest": "latest"
   }
