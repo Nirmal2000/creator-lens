@@ -55,11 +55,17 @@ const insertMediaItems = async (
   searchId: string,
   media: NormalizedMediaItem[],
 ) => {
-  if (!media.length) return [] as { id: string; platform: string; external_id: string }[];
+  if (!media.length)
+    return [] as {
+      id: string;
+      platform: string;
+      external_id: string;
+      storage_asset_id: string | null;
+    }[];
 
   const { data, error } = await supabase
     .from("media_items")
-    .insert(
+    .upsert(
       media.map((item) => ({
         search_id: searchId,
         platform: item.platform,
@@ -74,11 +80,32 @@ const insertMediaItems = async (
         published_at: item.publishedAt ?? null,
         thumbnail_url: item.thumbnailUrl,
       })),
+      { onConflict: "platform, external_id" },
     )
-    .select("id, platform, external_id");
+    .select("id, platform, external_id, storage_asset_id, created_at");
 
   if (error) {
     throw new Error(`Failed to insert media items: ${error.message}`);
+  }
+
+  if (data) {
+    const now = Date.now();
+    let inserted = 0;
+    let updated = 0;
+
+    data.forEach((item) => {
+      const createdTime = new Date(item.created_at).getTime();
+      // If created within the last 10 seconds, assume it's new
+      if (now - createdTime < 10000) {
+        inserted++;
+      } else {
+        updated++;
+      }
+    });
+
+    console.log(
+      `[SearchPersistence] Processed ${data.length} items: ${inserted} inserted, ${updated} updated.`,
+    );
   }
 
   return data ?? [];
@@ -87,30 +114,70 @@ const insertMediaItems = async (
 const queueJobsForMedia = async (
   supabase: ReturnType<typeof createServerSupabaseClient>,
   media: NormalizedMediaItem[],
-  insertedRefs: { id: string; platform: string; external_id: string }[],
+  insertedRefs: {
+    id: string;
+    platform: string;
+    external_id: string;
+    storage_asset_id: string | null;
+  }[],
 ) => {
   if (!media.length) return;
-  const jobInputs = media
+
+  // First, filter out media items that either lack a playback URL or are already downloaded.
+  const candidateMediaItems = media
     .map((item) => {
       if (!item.playbackUrl) return null;
       const ref = insertedRefs.find(
-        (row) => row.platform === item.platform && row.external_id === item.externalId,
+        (row) =>
+          row.platform === item.platform && row.external_id === item.externalId,
       );
       if (!ref) return null;
-      return {
-        media_item_id: ref.id,
-        video_url: item.playbackUrl,
-        thumbnail_url: item.thumbnailUrl,
-      };
+      if (ref.storage_asset_id) return null; // Skip if already downloaded
+      return { item, ref }; // Keep both for later processing
     })
-    .filter(Boolean) as Parameters<typeof queueDownloadJobs>[1];
+    .filter(Boolean) as { item: NormalizedMediaItem; ref: NonNullable<typeof insertedRefs[number]> }[];
 
-  await queueDownloadJobs(supabase, jobInputs);
+  if (!candidateMediaItems.length) {
+    console.log("[SearchPersistence] No candidate media items for download after initial filtering.");
+    return;
+  }
+
+  const candidateMediaItemIds = candidateMediaItems.map(c => c.ref.id);
+
+  // Check for existing active download jobs (queued or processing) for these media items.
+  const { data: existingJobs, error: existingJobsError } = await supabase
+    .from("download_jobs")
+    .select("media_item_id")
+    .in("media_item_id", candidateMediaItemIds)
+    .in("status", ["queued", "processing"]); // Only consider active jobs
+
+  if (existingJobsError) {
+    console.error("Failed to check for existing download jobs:", existingJobsError.message);
+    // Log the error but continue to avoid blocking the queuing process entirely.
+  }
+
+  const existingJobMediaItemIds = new Set(existingJobs?.map(job => job.media_item_id) || []);
+
+  // Filter out media items that already have an active job.
+  const jobsToQueue = candidateMediaItems
+    .filter(c => !existingJobMediaItemIds.has(c.ref.id))
+    .map((c) => ({
+      media_item_id: c.ref.id,
+      video_url: c.item.playbackUrl!, // playbackUrl is guaranteed by earlier check
+      thumbnail_url: c.item.thumbnailUrl,
+    }));
+
+  if (!jobsToQueue.length) {
+    console.log("[SearchPersistence] No new download jobs to queue after de-duplication.");
+    return;
+  }
+
+  await queueDownloadJobs(supabase, jobsToQueue);
+  console.log(`[SearchPersistence] Queued ${jobsToQueue.length} new download jobs.`);
 
   // Trigger the download worker immediately
   supabase.functions.invoke("download-worker", {
-    body: {}, // No specific body needed for this worker's current logic
-    // invokeType: 'BACKGROUND' // Consider this if available and suitable for fire-and-forget
+    body: {},
   }).catch((err) => {
     console.error("Failed to trigger download worker from search-storage:", err);
   });

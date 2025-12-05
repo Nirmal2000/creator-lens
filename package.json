@@ -10,6 +10,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-select": "latest",
     "@radix-ui/react-slot": "latest",
     "@supabase/supabase-js": "latest",

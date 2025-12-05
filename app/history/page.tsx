@@ -9,6 +9,13 @@ import { HistoryList } from "./components/history-list";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 interface HistoryFiltersState {
   keyword: string;
@@ -47,8 +54,8 @@ function HistoryPageContent() {
   });
   const [submittedFilters, setSubmittedFilters] = useState(filters);
 
-  // Track the user's explicit selection. If null, we auto-select the first item from the API.
-  const [manualSelectedId, setManualSelectedId] = useState<string | null>(initialSearchId);
+  // Track the user's explicit selection.
+  const [selectedId, setSelectedId] = useState<string | null>(initialSearchId);
 
   const historyQuery = useQuery<{ items: HistorySummary[] }>({
     queryKey: ["history", submittedFilters],
@@ -62,14 +69,7 @@ function HistoryPageContent() {
     },
   });
 
-  // Derived selection: fall back to the first item if the user hasn't picked one yet.
-  const selectedId = useMemo(() => {
-    if (manualSelectedId) return manualSelectedId;
-    if (historyQuery.data?.items?.length) return historyQuery.data.items[0].id;
-    return null;
-  }, [manualSelectedId, historyQuery.data]);
-
-  // Sync the URL with the computed selection to allow deep linking.
+  // Sync the URL with the selection to allow deep linking.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
@@ -93,6 +93,10 @@ function HistoryPageContent() {
     },
   });
 
+  const selectedSearchSummary = useMemo(() => {
+    return historyQuery.data?.items.find(item => item.id === selectedId);
+  }, [selectedId, historyQuery.data]);
+
   return (
     <div className="space-y-8">
       <section className="glass-panel rounded-3xl p-8">
@@ -115,39 +119,47 @@ function HistoryPageContent() {
         onChange={setFilters}
         onSubmit={() => {
           setSubmittedFilters(filters);
-          setManualSelectedId(null);
+          setSelectedId(null);
         }}
       />
 
-      <div className="grid gap-8 lg:grid-cols-[320px,1fr]">
-        <div>
-          {historyQuery.isLoading ? (
-            <div className="glass-panel rounded-2xl p-8 text-center text-muted-foreground">Loading…</div>
-          ) : historyQuery.error ? (
-            <div className="glass-panel rounded-2xl p-8 text-center text-red-400">Failed to load history.</div>
-          ) : (
-            <HistoryList
-              items={historyQuery.data?.items ?? []}
-              selectedId={selectedId}
-              onSelect={setManualSelectedId}
-            />
-          )}
-        </div>
-
-        <div>
-          {detailQuery.error ? (
-            <div className="glass-panel rounded-2xl p-10 text-center text-red-400">
-              Failed to load media for this search.
-            </div>
-          ) : (
-            <MediaGrid
-              items={detailQuery.data?.media ?? []}
-              isLoading={detailQuery.isLoading}
-              platformStatus={detailQuery.data?.search.platform_status ?? {}}
-            />
-          )}
-        </div>
+      <div> {/* This div now holds only the HistoryList */}
+        {historyQuery.isLoading ? (
+          <div className="glass-panel rounded-2xl p-8 text-center text-muted-foreground">Loading…</div>
+        ) : historyQuery.error ? (
+          <div className="glass-panel rounded-2xl p-8 text-center text-red-400">Failed to load history.</div>
+        ) : (
+          <HistoryList
+            items={historyQuery.data?.items ?? []}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+          />
+        )}
       </div>
+
+      <Sheet open={Boolean(selectedId)} onOpenChange={(open) => !open && setSelectedId(null)}>
+        <SheetContent side="bottom" className="max-h-[90vh] rounded-t-3xl">
+          <SheetHeader>
+            <SheetTitle>{selectedSearchSummary?.keyword ? `Results for "${selectedSearchSummary.keyword}"` : "Search Results"}</SheetTitle>
+            <SheetDescription>
+              {selectedSearchSummary ? `Requested on ${new Date(selectedSearchSummary.requested_at).toLocaleDateString()}` : "Select a search from the list to view its media."}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="pt-4 pb-8 overflow-y-auto"> {/* Added overflow-y-auto for the content */}
+            {detailQuery.error ? (
+              <div className="glass-panel rounded-2xl p-10 text-center text-red-400">
+                Failed to load media for this search.
+              </div>
+            ) : (
+              <MediaGrid
+                items={detailQuery.data?.media ?? []}
+                isLoading={detailQuery.isLoading}
+                platformStatus={detailQuery.data?.search.platform_status ?? {}}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
