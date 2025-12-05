@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from "react";
+import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,8 +91,13 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-8">
-      <section className="glass-panel rounded-3xl p-8">        
-        <h1 className="mt-2 text-3xl font-semibold">Discover creators across TikTok, YouTube, and Instagram</h1>        
+      <section className="glass-panel rounded-3xl p-8">
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="mt-2 text-3xl font-semibold">Discover creators across TikTok, YouTube, and Instagram</h1>
+          <Link href="/history">
+            <Button variant="outline">History</Button>
+          </Link>
+        </div>
 
         <form className="mt-6 flex flex-col gap-4 md:flex-row" onSubmit={handleSearch}>
           <Input

@@ -7,6 +7,8 @@ import type { NormalizedMediaItem } from "@/lib/media-normalizers";
 import { HistoryFilters } from "./components/history-filters";
 import { HistoryList } from "./components/history-list";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 interface HistoryFiltersState {
   keyword: string;
@@ -93,12 +95,19 @@ function HistoryPageContent() {
 
   return (
     <div className="space-y-8">
-      <section className="glass-panel rounded-3xl p-8">        
-        <h1 className="mt-2 text-3xl font-semibold">Browse stored searches from Supabase</h1>
-        <p className="mt-2 text-muted-foreground">
-          Apply filters to the query log, select a search, and replay the stored media grid without
-          hitting external APIs.
-        </p>
+      <section className="glass-panel rounded-3xl p-8">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="mt-2 text-3xl font-semibold">Browse stored searches from Supabase</h1>
+            <p className="mt-2 text-muted-foreground">
+              Apply filters to the query log, select a search, and replay the stored media grid without
+              hitting external APIs.
+            </p>
+          </div>
+          <Link href="/search">
+            <Button>Search</Button>
+          </Link>
+        </div>
       </section>
 
       <HistoryFilters
