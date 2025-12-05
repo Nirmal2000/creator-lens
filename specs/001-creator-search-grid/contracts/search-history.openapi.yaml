@@ -1,0 +1,219 @@
+openapi: 3.1.0
+info:
+  title: Cross-Platform Creator Search API
+  version: 0.1.0
+servers:
+  - url: https://{project}.vercel.app/api
+    variables:
+      project:
+        default: scrapecreators
+components:
+  securitySchemes:
+    internalAuth:
+      type: apiKey
+      in: header
+      name: x-internal-key
+  schemas:
+    PlatformFilter:
+      type: object
+      properties:
+        tiktok:
+          type: object
+          properties:
+            date_posted:
+              type: string
+              enum: [yesterday, this-week, this-month, last-3-months, last-6-months, all-time]
+            sort_by:
+              type: string
+              enum: [relevance, most-liked, date-posted]
+            region:
+              type: string
+              description: Two-letter country code
+        youtube:
+          type: object
+          properties:
+            uploadDate:
+              type: string
+              enum: [last_hour, today, this_week, this_month, this_year]
+            sortBy:
+              type: string
+              enum: [relevance, upload_date]
+            includeExtras:
+              type: boolean
+          required: [uploadDate]
+        instagram:
+          type: object
+          properties:
+            amount:
+              type: integer
+              minimum: 1
+              maximum: 60
+      additionalProperties: false
+    SearchRequest:
+      type: object
+      required: [keyword]
+      properties:
+        keyword:
+          type: string
+        filters:
+          $ref: '#/components/schemas/PlatformFilter'
+    MediaItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+          enum: [tiktok, youtube, instagram]
+        externalId:
+          type: string
+        title:
+          type: string
+        authorHandle:
+          type: string
+        authorName:
+          type: string
+        stats:
+          type: object
+        durationSeconds:
+          type: number
+        publishedAt:
+          type: string
+          format: date-time
+        playbackUrl:
+          type: string
+          format: uri
+        thumbnailUrl:
+          type: string
+          format: uri
+        metadata:
+          type: object
+    SearchResponse:
+      type: object
+      properties:
+        searchId:
+          type: string
+          format: uuid
+        platformStatus:
+          type: object
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaItem'
+        cursorState:
+          type: object
+paths:
+  /search:
+    post:
+      summary: Trigger multi-platform search and persistence
+      tags: [Search]
+      security:
+        - internalAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        '202':
+          description: Search accepted and media persisted (or queued for download)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          description: Invalid filters combination
+        '502':
+          description: Upstream Scrape Creators failure
+  /search/{id}/more:
+    post:
+      summary: Fetch additional pages using stored continuation tokens
+      tags: [Search]
+      security:
+        - internalAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                platforms:
+                  type: array
+                  items:
+                    type: string
+                    enum: [tiktok, youtube, instagram]
+      responses:
+        '200':
+          description: Additional media appended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+  /history:
+    get:
+      summary: List stored searches
+      tags: [History]
+      parameters:
+        - in: query
+          name: keyword
+          schema:
+            type: string
+        - in: query
+          name: platform
+          schema:
+            type: string
+            enum: [tiktok, youtube, instagram]
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Paged list of stored searches
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchResponse'
+                  nextCursor:
+                    type: string
+    
+  /history/{searchId}:
+    get:
+      summary: Retrieve stored media for a search (uses Supabase cache only)
+      tags: [History]
+      parameters:
+        - in: path
+          name: searchId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Media grid payload fully sourced from Supabase
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '404':
+          description: Search not found
