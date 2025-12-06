@@ -1,18 +1,30 @@
 'use client';
 
 import { useRef, useState } from "react";
-import { Volume2, VolumeX } from "lucide-react";
+import { Download, Volume2, VolumeX } from "lucide-react";
 import type { NormalizedMediaItem } from "@/lib/media-normalizers";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface MediaCardProps {
   item: NormalizedMediaItem;
   isMuted: boolean;
+  selectable?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
   onToggleMute: () => void;
   onClick: () => void;
 }
 
-export function MediaCard({ item, isMuted, onToggleMute, onClick }: MediaCardProps) {
+export function MediaCard({
+  item,
+  isMuted,
+  selectable = false,
+  isSelected = false,
+  onToggleSelect,
+  onToggleMute,
+  onClick,
+}: MediaCardProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -33,14 +45,43 @@ export function MediaCard({ item, isMuted, onToggleMute, onClick }: MediaCardPro
 
   const isYoutube = item.platform === "youtube";
 
+  // Determine the download link: use explicit downloadUrl or fallback to proxying the playbackUrl
+  const finalDownloadUrl = item.downloadUrl
+    ? item.downloadUrl
+    : item.playbackUrl && !isYoutube
+      ? `/api/proxy-download?url=${encodeURIComponent(item.playbackUrl)}&filename=${item.platform}-${item.externalId}.mp4`
+      : null;
+
   return (
     <article
-      className="group relative cursor-pointer rounded-2xl border border-border/60 bg-card/70 p-3 shadow-xl transition hover:border-primary/60"
+      className={cn(
+        "group relative cursor-pointer rounded-2xl border bg-card/70 p-3 shadow-xl transition hover:border-primary/60",
+        isSelected ? "border-primary ring-1 ring-primary" : "border-border/60"
+      )}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
-      onClick={onClick}
+      onClick={() => {
+        if (selectable && onToggleSelect) {
+          onToggleSelect();
+        } else {
+          onClick();
+        }
+      }}
     >
       <div className="relative aspect-[9/16] overflow-hidden rounded-xl bg-muted">
+        {/* Selection Checkbox */}
+        {selectable && onToggleSelect ? (
+          <div
+            className="absolute left-2 top-2 z-20"
+            onClick={(e) => e.stopPropagation()} // Prevent card click from firing again
+          >
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={onToggleSelect}
+            />
+          </div>
+        ) : null}
+
         {/* Thumbnail (Always visible initially, hidden on hover if video/iframe plays) */}
         {item.thumbnailUrl ? (
           <img
@@ -95,6 +136,19 @@ export function MediaCard({ item, isMuted, onToggleMute, onClick }: MediaCardPro
               >
                 {isMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
               </button>
+              {finalDownloadUrl && (
+                <a
+                  href={finalDownloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute right-12 top-2 z-10 rounded-full bg-black/40 p-2 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/60 group-hover:opacity-100"
+                  download
+                >
+                  <Download className="size-4" />
+                </a>
+              )}
+
             </>
           ) : null
         )}

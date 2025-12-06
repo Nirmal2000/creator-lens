@@ -59,8 +59,9 @@ export async function GET(
     const media = await Promise.all(
       (mediaRows ?? []).map(async (row) => {
         const asset = assetsMap.get(row.id) ?? null;
-        const [videoUrl, thumbnailUrl] = await Promise.all([
+        const [videoUrl, downloadUrl, thumbnailUrl] = await Promise.all([
           asset?.video_path ? storage.createSignedUrl(asset.video_path, 60) : Promise.resolve({ data: null, error: null }),
+          asset?.video_path ? storage.createSignedUrl(asset.video_path, 60, { download: true }) : Promise.resolve({ data: null, error: null }),
           asset?.thumbnail_path ? storage.createSignedUrl(asset.thumbnail_path, 60) : Promise.resolve({ data: null, error: null }),
         ]);
 
@@ -77,6 +78,7 @@ export async function GET(
           publishedAt: row.published_at,
           thumbnailUrl: thumbnailUrl.data?.signedUrl ?? row.thumbnail_url,
           playbackUrl: videoUrl.data?.signedUrl ?? null,
+          downloadUrl: downloadUrl.data?.signedUrl ?? null,
           raw: row,
         };
       }),

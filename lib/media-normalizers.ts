@@ -13,6 +13,7 @@ export interface NormalizedMediaItem {
   publishedAt?: string;
   thumbnailUrl: string;
   playbackUrl?: string;
+  downloadUrl?: string;
   raw: unknown;
 }
 
